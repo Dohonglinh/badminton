@@ -56,3 +56,4 @@ export enum BookingStep {
   BOOKING_COMPLETE = 'BOOKING_COMPLETE',
   ERROR = 'ERROR'
 } 
+

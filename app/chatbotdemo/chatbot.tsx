@@ -23,17 +23,6 @@ interface Booking {
   endTime: string;
 }
 
-// interface BookingData {
-//   bookingCode: string;
-//   courtName: string;
-//   date: string;
-//   startTime: string;
-//   endTime: string;
-//   fullName: string;
-//   email: string;
-//   isPaid?: boolean;
-// }
-
 const COMMANDS = {
   CANCEL_BOOKING: {
     command: '/huydatsan',
