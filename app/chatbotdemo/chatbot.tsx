@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { collection, getDocs, query, doc, getDoc, deleteDoc } from "firebase/firestore";
 import { db } from "@/app/source/firebaseConfig";
+import dayjs from "dayjs";
 
 interface Message {
   id: number;
@@ -147,7 +148,7 @@ const ChatBotWidget: React.FC = () => {
     // Các action mặc định
     const responses: Record<string, string> = {
       'cancel': "❌ <strong>Hủy đặt sân</strong><br>Để hủy đặt sân, vui lòng sử dụng lệnh: /huydatsan [mã đặt sân]<br>Ví dụ: /huydatsan ABC123",
-      'contact': "📞 <strong>Thông tin liên hệ</strong><br><b>Thế Giới Cầu Lông</b><br>📍 Số 8 Trần Phú, P.Bình Định, Tx. An Nhơn<br>📱 Hotline: 0393118322<br>🕐 Giờ mở cửa: 5h - 22h hàng ngày",
+      'contact': "📞 <strong>Thông tin liên hệ</strong><br><b>Thế Giới Cầu Lông</b><br>📍 Trung tâm giải trí Cầu Lông Tuy Phước. Xã Tuy Phước Đông, Tỉnh Gia Lai<br>📱 Hotline: 0339191812<br>🕐 Giờ mở cửa: 5h - 22h hàng ngày",
       'services': "🔧 <strong>Dịch vụ khác</strong><br>• 🏸 Cho thuê vợt<br>• 🚿 Phòng tắm<br>• 🥤 Nước uống & snack<br>• 🏆 Tổ chức giải đấu<br>• 🎓 Dạy cầu lông<br>• 🚗 Chỗ để xe miễn phí",
       'chat': "💬 <strong>Kết nối nhân viên</strong><br>Đang chuyển sang chat trực tiếp...<br>⏰ Thời gian chờ: 1-2 phút"
     };
@@ -174,7 +175,7 @@ const ChatBotWidget: React.FC = () => {
     // Xử lý lệnh nếu là command
     if (inputValue.startsWith('/')) {
       const [command, ...params] = inputValue.split(' ');
-      
+
       switch (command) {
         case COMMANDS.CANCEL_BOOKING.command:
           await handleCancelCommand(params);
@@ -212,49 +213,115 @@ const ChatBotWidget: React.FC = () => {
     setInputValue('');
   };
 
- const handleCancelCommand = async (params: string[]) => {
-  if (params.length === 0) {
-    addMessage('❌ Vui lòng nhập mã đặt sân.<br>Cú pháp: /huydatsan [mã đặt sân]<br>Ví dụ: /huydatsan ABC123');
-    return;
-  }
-
-  const bookingCode = params[0].toUpperCase();
-  if (!/^[A-Z0-9]{6}$/.test(bookingCode)) {
-    addMessage('❌ Mã đặt sân không hợp lệ! Mã đặt sân phải có 6 ký tự và chỉ bao gồm chữ cái và số.');
-    return;
-  }
-
-  setLoading(true);
-  addMessage('🔍 Đang kiểm tra thông tin đặt sân...');
-
-  try {
-    const bookingRef = doc(db, "bookings", bookingCode); // 🔧 Định nghĩa bookingRef
-    const bookingSnap = await getDoc(bookingRef);
-
-    if (!bookingSnap.exists()) {
-      addMessage("❌ Mã đặt sân không tồn tại! Vui lòng kiểm tra lại.");
+  const handleCancelCommand = async (params: string[]) => {
+    if (params.length === 0) {
+      addMessage('❌ Vui lòng nhập mã đặt sân.<br>Cú pháp: /huydatsan [mã đặt sân]<br>Ví dụ: /huydatsan ABC123');
       return;
     }
 
-    // Hủy đặt sân: bạn có thể update trạng thái hoặc xóa
-    await deleteDoc(bookingRef); // ❌ Hoặc dùng updateDoc để chuyển trạng thái
+    const bookingCode = params[0].toUpperCase();
+    if (!/^[A-Z0-9]{6}$/.test(bookingCode)) {
+      addMessage('❌ Mã đặt sân không hợp lệ! Mã đặt sân phải có 6 ký tự và chỉ bao gồm chữ cái và số.');
+      return;
+    }
 
-    const bookingData = bookingSnap.data();
-    const courtName = bookingData?.courtName || "Không rõ sân";
-    const startTime = bookingData?.startTime || "??:??";
-    const endTime = bookingData?.endTime || "??:??";
-    const date = bookingData?.date || "Không rõ ngày";
+    setLoading(true);
+    addMessage('🔍 Đang kiểm tra thông tin đặt sân...');
 
-    addMessage(
-      `✅ <b>Đã hủy thành công!</b><br>Mã đặt sân: <b>${bookingCode}</b><br>Sân: <b>${courtName}</b><br>Ngày: <b>${date}</b><br>Thời gian: <b>${startTime} - ${endTime}</b>`
-    );
-  } catch (error) {
-    console.error(error);
-    addMessage("❌ Có lỗi xảy ra khi hủy đặt sân. Vui lòng thử lại sau.");
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      const bookingRef = doc(db, "bookings", bookingCode); // 🔧 Định nghĩa bookingRef
+      const bookingSnap = await getDoc(bookingRef);
+
+      if (!bookingSnap.exists()) {
+        addMessage("❌ Mã đặt sân không tồn tại! Vui lòng kiểm tra lại.");
+        return;
+      }
+
+      const bookingData = bookingSnap.data();
+
+      if (bookingData) {
+        // Kiểm tra thời gian đã qua
+        const [bookingYear, bookingMonth, bookingDay] = bookingData.date.split('-').map(Number);
+        const [bookingHour, bookingMinute] = bookingData.startTime.split(':').map(Number);
+
+        const bookingDateTime = dayjs()
+          .year(bookingYear)
+          .month(bookingMonth - 1)
+          .date(bookingDay)
+          .hour(bookingHour)
+          .minute(bookingMinute)
+          .second(0);
+
+        const now = dayjs();
+
+        if (bookingDateTime.isBefore(now)) {
+          addMessage("❌ Không thể hủy đặt sân cho thời gian đã qua!");
+          return;
+        }
+
+        // Kiểm tra thời gian hủy sân (chỉ cho phép hủy trước 2 tiếng)
+        const minutesDiff = bookingDateTime.diff(now, 'minute');
+        const hoursDiff = minutesDiff / 60;
+
+        if (hoursDiff < 2) {
+          const remainingMinutes = Math.max(0, minutesDiff);
+          let errorMsg = "❌ Không thể hủy sân!<br>";
+
+          if (remainingMinutes <= 0) {
+            errorMsg += "Đã quá thời gian đặt sân.";
+          } else {
+            errorMsg += `Thời gian đặt sân của bạn còn ${remainingMinutes} phút nữa.<br>`;
+            errorMsg += "Bạn chỉ có thể hủy sân trước giờ đặt ít nhất 2 tiếng.";
+          }
+
+          addMessage(errorMsg);
+          return;
+        }
+      }
+
+      // Hủy đặt sân
+      await deleteDoc(bookingRef);
+
+      const courtName = bookingData?.courtName || "Không rõ sân";
+      const startTime = bookingData?.startTime || "??:??";
+      const endTime = bookingData?.endTime || "??:??";
+      const date = bookingData?.date || "Không rõ ngày";
+
+      // Gửi email thông báo hủy sân nếu có email
+      if (bookingData?.email) {
+        try {
+          await fetch('https://script.google.com/macros/s/AKfycbwJVBLvRETzdCHJTD8Jo6vmNmruLGn1Y9MdoiZocRvAe6MH_ECmeYG8XZOJPGzRYpF-4Q/exec', {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: bookingData.email,
+              type: 'cancel',
+              formData: {
+                courtName: bookingData.courtName,
+                date: bookingData.date,
+                startTime: bookingData.startTime,
+                endTime: bookingData.endTime
+              }
+            })
+          });
+        } catch (emailError) {
+          console.error("Lỗi khi gửi email:", emailError);
+        }
+      }
+
+      addMessage(
+        `✅ <b>Đã hủy thành công!</b><br>Mã đặt sân: <b>${bookingCode}</b><br>Sân: <b>${courtName}</b><br>Ngày: <b>${date}</b><br>Thời gian: <b>${startTime} - ${endTime}</b>`
+      );
+    } catch (error) {
+      console.error(error);
+      addMessage("❌ Có lỗi xảy ra khi hủy đặt sân. Vui lòng thử lại sau.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
   const handleHelpCommand = () => {
@@ -307,7 +374,7 @@ const ChatBotWidget: React.FC = () => {
                 <p className="text-xs opacity-90">Trợ lý ảo</p>
               </div>
             </div>
-            <button 
+            <button
               onClick={toggleChat}
               className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1 transition-colors"
             >
@@ -336,7 +403,7 @@ const ChatBotWidget: React.FC = () => {
                 )}
               </div>
             ))}
-            
+
             {isTyping && (
               <div className="flex justify-start">
                 <div className="bg-white p-2 rounded-2xl rounded-bl-md shadow-sm">
@@ -369,7 +436,7 @@ const ChatBotWidget: React.FC = () => {
                 📅 Lịch
               </button>
             </div>
-            
+
             {/* Input */}
             <div className="flex gap-2">
               <input
