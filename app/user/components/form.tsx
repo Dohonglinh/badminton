@@ -123,13 +123,18 @@ export default function BookingModal({ court }: { court: number }) {
       }
     }
 
+    const now = dayjs();
     while (start.isBefore(end) || start.isSame(end)) {
       const timeStr = start.format("HH:mm");
-      slots.push({
-        label: timeStr + (disabledTimes.has(timeStr) ? " (Đã đặt)" : ""),
-        value: timeStr,
-        disabled: disabledTimes.has(timeStr),
-      });
+      const isTimeSlotPast = monthlyStartDate && monthlyStartDate.isSame(now, 'day') && start.isBefore(now);
+
+      if (!isTimeSlotPast && !disabledTimes.has(timeStr)) {
+        slots.push({
+          label: timeStr,
+          value: timeStr,
+          disabled: false,
+        });
+      }
       start = start.add(30, "minute");
     }
     return slots;
@@ -246,11 +251,13 @@ export default function BookingModal({ court }: { court: number }) {
       const isBooked = checkTimeSlotBooked(timeStr);
       const isTimeSlotPast = formData.date && formData.date.isSame(now, 'day') && start.isBefore(now);
 
-      slots.push({
-        label: start.format("HH:mm") + (isBooked ? " (Đã đặt)" : "") + (isTimeSlotPast ? " (Đã qua)" : ""),
-        value: start.format("HH:mm"),
-        disabled: Boolean(isBooked || isTimeSlotPast), // Đảm bảo luôn trả về boolean
-      });
+      if (!isTimeSlotPast && !isBooked) {
+        slots.push({
+          label: start.format("HH:mm"),
+          value: start.format("HH:mm"),
+          disabled: false,
+        });
+      }
 
       start = start.add(30, "minute");
     }
@@ -268,11 +275,17 @@ export default function BookingModal({ court }: { court: number }) {
 
     // Chuyển đổi thời gian sang phút để so sánh dễ dàng hơn
     const startMinutes = timeToMinutes(startTime);
-    const endMinutes = timeToMinutes(calculatedEndTime);
+    let endMinutes = timeToMinutes(calculatedEndTime);
+    if (endMinutes <= startMinutes) {
+      endMinutes += 24 * 60;
+    }
 
     return realtimeBookings.some(booking => {
       const bookingStartMinutes = timeToMinutes(booking.startTime);
-      const bookingEndMinutes = timeToMinutes(booking.endTime);
+      let bookingEndMinutes = timeToMinutes(booking.endTime);
+      if (bookingEndMinutes <= bookingStartMinutes) {
+        bookingEndMinutes += 24 * 60;
+      }
 
       // Kiểm tra xem có giao nhau không
       return (
@@ -383,37 +396,40 @@ export default function BookingModal({ court }: { court: number }) {
   }, [formData.startTime, formData.duration, formData.date, realtimeBookings, calculateEndTimeFromStart]);
 
   const validateBooking = () => {
-    const error: { [key: string]: string } = {};
+    const newError: { [key: string]: string } = {};
 
     // Kiểm tra họ tên, sđt, email luôn
-    if (!formData.fullName) error.name = "Vui lòng nhập họ và tên!";
-    if (!formData.phone) error.phone = "Vui lòng nhập số điện thoại!";
-    if (!formData.email) error.email = "Vui lòng nhập email!";
+    if (!formData.fullName) newError.name = "Vui lòng nhập họ và tên!";
+    if (!formData.phone) newError.phone = "Vui lòng nhập số điện thoại!";
+    if (!formData.email) newError.email = "Vui lòng nhập email!";
 
           if (isMonthly) {
       // Kiểm tra các trường đặt tháng
-      if (!monthlyStartDate) error.monthlyStartDate = "Chọn ngày bắt đầu!";
-      if (!monthlyEndDate) error.monthlyEndDate = "Chọn ngày kết thúc!";
-      if (!monthlyStartTime) error.monthlyStartTime = "Chọn giờ bắt đầu!";
-      if (!hoursPerSession) error.hoursPerSession = "Nhập số giờ/buổi!";
+      if (!monthlyStartDate) newError.monthlyStartDate = "Chọn ngày bắt đầu!";
+      if (!monthlyEndDate) newError.monthlyEndDate = "Chọn ngày kết thúc!";
+      if (!monthlyStartTime) newError.monthlyStartTime = "Chọn giờ bắt đầu!";
+      if (!hoursPerSession) newError.hoursPerSession = "Nhập số giờ/buổi!";
 
       // Kiểm tra giờ quá khứ cho đặt tháng
       if (monthlyStartDate && monthlyStartTime && isPastTime(monthlyStartDate, monthlyStartTime)) {
-        error.monthlyStartTime = "Không thể đặt giờ đã qua trong ngày!";
+        newError.monthlyStartTime = "Không thể đặt giờ đã qua trong ngày!";
       }
     } else {
       // Kiểm tra các trường đặt lẻ
-      if (!formData.date) error.date = "Vui lòng chọn ngày!";
-      if (!formData.startTime) error.startTime = "Vui lòng chọn giờ bắt đầu!";
-      if (!formData.duration) error.duration = "Vui lòng chọn thời gian chơi!";
-
-      // Kiểm tra giờ quá khứ cho đặt lẻ
-      if (formData.date && formData.startTime && isPastTime(formData.date, formData.startTime)) {
-        error.startTime = "Không thể đặt giờ đã qua trong ngày!";
+      if (!formData.date) newError.date = "Vui lòng chọn ngày!";
+      
+      if (!formData.startTime) {
+        newError.startTime = "Vui lòng chọn giờ bắt đầu!";
+      } else if (error.startTime === "Khung giờ này đã được đặt!") {
+        newError.startTime = error.startTime;
+      } else if (formData.date && isPastTime(formData.date, formData.startTime)) {
+        newError.startTime = "Không thể đặt giờ đã qua trong ngày!";
       }
+      
+      if (!formData.duration) newError.duration = "Vui lòng chọn thời gian chơi!";
     }
 
-    return error;
+    return newError;
   };
 
   // Thêm hàm tạo mã đặt sân
@@ -427,10 +443,10 @@ export default function BookingModal({ court }: { court: number }) {
   };
 
   const handleSubmit = async () => {
-  const error = validateBooking();
-  setError(error);
+  const validationErrors = validateBooking();
+  setError(validationErrors);
 
-  if (Object.keys(error).length === 0 && courtData) {
+  if (Object.keys(validationErrors).length === 0 && courtData) {
     try {
       const bookingRef = collection(db, "bookings");
 
