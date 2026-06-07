@@ -88,6 +88,12 @@ export default function CancelBooking() {
         return;
       }
 
+      // Kiểm tra trạng thái thanh toán
+      if (bookingData.isPaid) {
+        message.error("❌ Không thể hủy sân trực tuyến đối với đơn đã thanh toán! Vui lòng liên hệ hotline: 0393118322 để được hỗ trợ.");
+        return;
+      }
+
       // Hiển thị modal xác nhận
       Modal.confirm({
         title: 'Xác nhận hủy đặt sân',

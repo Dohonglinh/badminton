@@ -277,6 +277,12 @@ const ChatBotWidget: React.FC = () => {
           addMessage(errorMsg);
           return;
         }
+
+        // Kiểm tra trạng thái thanh toán
+        if (bookingData?.isPaid) {
+          addMessage("❌ Không thể hủy sân trực tuyến đối với đơn đã thanh toán!<br>Vui lòng liên hệ hotline: <strong>0393118322</strong> để được hỗ trợ hoàn tiền.");
+          return;
+        }
       }
 
       // Hủy đặt sân

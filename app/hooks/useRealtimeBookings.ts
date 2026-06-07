@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/app/source/firebaseConfig";
 
-// ✅ Định nghĩa kiểu dữ liệu Booking
+//  Định nghĩa kiểu dữ liệu Booking
 interface Booking {
   id: string;
   courtId: number;
