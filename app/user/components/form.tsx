@@ -539,6 +539,49 @@ export default function BookingModal({ court }: { court: number }) {
   bookingCode: bookingsToAdd[0]?.bookingCode // Lấy mã đặt sân của buổi đầu tiên
 });
 
+// Gửi email báo đặt sân theo tháng
+try {
+  await fetch(
+    "https://script.google.com/macros/s/AKfycbwJVBLvRETzdCHJTD8Jo6vmNmruLGn1Y9MdoiZocRvAe6MH_ECmeYG8XZOJPGzRYpF-4Q/exec",
+    {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: formData.email,
+        type: "monthly",
+        bookings: bookingsToAdd.map(b => ({
+          bookingCode: b.bookingCode,
+          fullName: b.fullName,
+          phone: b.phone,
+          email: b.email,
+          date: b.date,
+          startTime: b.startTime,
+          endTime: b.endTime,
+          duration: b.duration,
+          courtName: b.courtName,
+          totalPrice: b.totalPrice,
+        })),
+        summary: {
+          bookingCode: bookingsToAdd[0]?.bookingCode,
+          courtName: courtData.name,
+          monthlyStartDate: monthlyStartDate?.format("DD/MM/YYYY"),
+          monthlyEndDate: monthlyEndDate?.format("DD/MM/YYYY"),
+          startTime: monthlyStartTime,
+          endTime: dayjs(monthlyStartTime, "HH:mm").add(hoursPerSession, "hour").format("HH:mm"),
+          totalPrice: calculateMonthlyPrice(),
+          duration: `${hoursPerSession}h`,
+          fullName: formData.fullName
+        }
+      }),
+    }
+  );
+} catch (emailErr) {
+  console.error("Lỗi gửi email đặt sân tháng:", emailErr);
+}
+
 alert("🎉 Đặt sân theo tháng thành công!");
 setIsSuccessModalOpen(true);
 
@@ -745,9 +788,9 @@ setFormData((prev) => ({
       centered
       style={{ maxWidth: '90vw' }}
     >
-      <div className="flex gap-8 max-w-[1000px] mx-auto">
+      <div className="flex flex-col md:flex-row gap-8 max-w-[1000px] mx-auto">
         {/* Form Đặt Sân (Bên trái) */}
-        <div className="w-1/2 space-y-4">
+        <div className="w-full md:w-1/2 space-y-4">
           <p className="font-bold text-blue-600">{courtData.name}</p>
           
           <div className="space-y-4">
@@ -979,10 +1022,10 @@ setFormData((prev) => ({
         </div>
 
         {/* Dữ liệu sân (Bên phải) */}
-        <div className="w-1/2 space-y-4">
+        <div className="w-full md:w-1/2 space-y-4">
           <p className="font-bold text-blue-600">Thông Tin Sân</p>
           <div className="border md:p-4 p-[4px] rounded-lg flex items-center justify-center">
-            <div className="flex flex-col w-1/2 text-[8px] md:text-[14px] md:gap-[10px]">
+            <div className="flex flex-col w-1/2 text-xs md:text-[14px] md:gap-[10px]">
               <p>
                 <strong>Sân:</strong> {courtData.name}
               </p>
